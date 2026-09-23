@@ -1,122 +1,82 @@
 # obsidian-classify
 
-用本地 laya 模型给 Obsidian 笔记自动分类，并顺带判断这篇笔记有没有长期价值。
-
-写完一篇丢进 `00 收件箱`，后台监听到就自动归位；拿不准的留在原地等你手动处理，绝不乱挪。
+用本地 laya 模型给 Obsidian 笔记自动分类，并顺带判断有没有长期价值。
+写完一篇丢进 `00 收件箱`，调一次命令就归位；拿不准的留在原地等你手动处理，绝不乱挪。
 
 ## 安装
 
-依赖 Python 3.11 + laya 0.3.6 + torch 2.2.2（x86_64 macOS 上 torch 不能升 2.5+）。模型需已下载到本地缓存：
-
 ```bash
-/Users/adrain/Desktop/project/.venv-laya/bin/python classify.py --help
+pip install -e .
 ```
 
-`config.yaml` 里的 `model` 指向已有的 laya 快照目录，`vault` 指向目标笔记本。
+依赖 Python 3.10+ 和 `laya`（模型跑在本地，无需联网）。
+
+首次使用前改 `config.yaml` 里的 `vault` 路径。
 
 ## 用法
 
 ```bash
-# 扫一次收件箱（默认 dry-run，只预演不动文件）
-python classify.py scan
-
-# 确认没问题后实际执行
+# 分类并移动（技能默认走这条）
 python classify.py scan --apply
 
-# 常驻监听：写完丢进收件箱就自动处理
-python classify.py watch --apply
+# 只预演，不动文件
+python classify.py scan
 
-# 只判断不移动 —— 上线前拿真实笔记试效果
+# 只判断不移动 —— 拿真实笔记试效果
 python classify.py judge /path/to/notes --json out.json
-
-# 跑一批样本看置信度/价值分布，用来定阈值
-python classify.py calibrate --limit 100
 ```
 
-`scan` 和 `watch` 默认都是 **dry-run**，必须显式加 `--apply` 才会真的移动文件。
+也可以直接说「分类笔记」「整理收件箱」，由 OpenCode 技能
+`obsidian-classify` 调用（`~/.config/opencode/skills/obsidian-classify/`）。
+
+`scan` 默认 **dry-run**，必须显式加 `--apply` 才会真的移动文件。
 
 ## 它做什么
 
-1. 读收件箱里的 `.md`（跳过 `_` `.` 开头的，索引文件不碰）
-2. 一次 `system_one` 同时问两个问题：**属于哪一类** + **有多大长期价值**
-3. 分类置信度 ≥ 阈值 → 移进目标文件夹，同时重写全库受影响的带路径双链，并把判断结果写进 frontmatter
-4. 置信度不足 → 留在收件箱等人工，只打印不改动
-
-移动不会覆盖重名文件，会自动追加 ` (1)` ` (2)`。重复执行是幂等的。
+1. 读 `00 收件箱` 里的 `.md`（跳过 `_` 和 `.` 开头的）
+2. 取**标题 + 正文预览 + 现有标签**，一次问模型两个问题：
+   分类、长期价值
+3. 分类置信度够高 → 从文件夹名里选一个最像的，移动过去
+   置信度不够 → 留在收件箱，下次再说
+4. 在 frontmatter 里写入 `category` / `confidence` / `value_score`
+5. 文件名和正文里的 `[[wikilink]]` 一律不动，不会打断双链
 
 ## 分类目标
 
-8 个互斥类别，对应笔记本的 8 个顶层目录（`00 收件箱`、`09 模板`、`10 附件` 不参与分类）：
+按文件夹名首字母排序，写死 8 个（`config.py` 拒绝超过 10 个）：
 
-| 类别 | 目标文件夹 |
-| --- | --- |
-| `meeting` | `01 会议纪要` |
-| `work` | `02 工作文档` |
-| `tech` | `03 技术文档` |
-| `study` | `04 学习笔记` |
-| `reading` | `05 读书笔记` |
-| `life` | `06 生活记录` |
-| `collect` | `07 资料收集` |
-| `idea` | `08 想法灵感` |
+| 目标文件夹 | 类别 | 大概是什么 |
+|---|---|---|
+| `01 会议纪要` | `meeting` | 会议记录、讨论纪要、会议决策 |
+| `02 工作任务` | `work` | 工作任务、TODO、待办、排期、工作流程 |
+| `03 技术文档` | `tech` | 技术笔记、代码、架构、技术方案 |
+| `04 学习笔记` | `study` | 学习笔记、课程记录、知识梳理 |
+| `05 读书笔记` | `reading` | 读书笔记、书摘、阅读心得 |
+| `06 生活记录` | `life` | 生活日常、随笔、心情记录 |
+| `07 收藏整理` | `collect` | 收藏、剪藏、待整理资料 |
+| `08 想法灵感` | `idea` | 想法、灵感、点子、构思 |
 
-**为什么是 8 类**：laya 的 `choice` 选项数落在哪个温度桶决定置信度是否已校准。`choice:6-10` 桶温度 1.0 属校准区间，`choice:11+` 桶被 clamp 到 0.1006 属未校准——加到第 9 类以上会得到不可信的置信度。`config.py` 会拒绝超过 10 类的配置。
-
-同理，选项描述要短：全部选项文本共用 `head_max_len=192`，超长直接抛 `ValueError`。
+只在这 8 个文件夹里选——模型偶尔会吐出别的词，会被代码拦下来留置。
 
 ## 价值判断怎么用
 
-用 `score` 类型打 0–3 分（4 档，落在已校准的 `score:3-5` 桶），结果写进 frontmatter：
+模型给 0-3 分和四档 label，`value_norm` 归一到 0-1，和 `value_threshold`（默认 1.0）
+比较：低于阈值的**只分类、不打标**，笔记本身照常归位。
 
-```yaml
-laya_category: 技术文档
-laya_confidence: 0.3478
-laya_value: 0.70          # 归一化到 0-1
-laya_value_label: 2 中：有参考意义，会回看
-laya_value_confidence: 0.1087
-laya_reviewed: 2026-09-23
-laya_moved_to: 03 技术文档
-```
-
-**要留意**：实测价值判断的 `confidence` 普遍只有 0.03–0.14，比分类置信度还低。`购物清单` 这种内容也会被打成"中等"。所以：
-
-- 分数**低于** `value_threshold` 时可信度相对更高，可以拿来筛掉明确的无价值笔记
-- 分数**高**不代表真的是好笔记，别单凭它做归档决策
-- `confidence < 0.15` 时 label 会自动追加"（模型拿不准，仅供参考）"
-
-想让它更可靠，先用 `calibrate` 跑一批你熟悉好坏的笔记，看分布再定阈值。
+它决定的是「值不值得额外做点什么」，比如要不要挂标签方便日后检索。
+注意 laya 的价值判断 confidence 实测偏低（多在 0.03-0.14），
+低于 0.15 时输出里会带个提醒标——**分数本身比 confidence 可靠**，别只看 confidence。
 
 ## 阈值怎么调
 
-`config.yaml` 两个阈值：
+- `category_confidence_threshold`（默认 0.25）：分类置信度下限，低了就留置
+- `value_threshold`（默认 1.0）：价值分下限，低了就不打标
 
-- `category_confidence_threshold`（默认 0.25）：低于此值留在收件箱。实测清晰的技术笔记 0.32、模糊笔记 0.13、旧库历史分布 0.04–0.49。调高→更多笔记需人工，调低→更多笔记可能归错类
-- `value_threshold`（默认 1.0）：`score` 期望分 0–3，低于此判定低价值
-
-`calibrate` 会直接给出"想让约 2/3 自动归位该设多少"的参考值。
+想让它更可靠，用 `judge --json` 跑一批你熟悉好坏的笔记，看输出的分布再定阈值。
+判太松会乱归位，判太严会全留置，两个方向都得试一次。
 
 ## 双链安全
 
-移动笔记最大的风险是断链。裸文件名双链 `[[某笔记]]` 由 Obsidian 自行解析，移动后不受影响；但带路径的 `[[00 收件箱/某笔记]]` 会失效。
-
-`mover.rewrite_links` 会在移动后扫全库，把这些带路径双链改到新位置，同时处理 `|别名`、`#标题`、`.md` 后缀几种写法。`.obsidian/` 和 `.git/` 内的文件不碰。
-
-## 项目结构
-
-```
-obsidian_classify/
-  config.py     配置加载与合法性校验（类别数、路径展开）
-  extract.py    笔记解析：frontmatter、标题、标签、摘要
-  engine.py     laya 封装，一次 system_one 问两个问题
-  mover.py      移动 + 双链重写 + 重名兜底
-  annotate.py   判断结果写回 frontmatter
-  worker.py     单条处理编排：判断→决策→移动/留置
-  watch.py      收件箱轮询
-  cli.py        scan / watch / judge / calibrate
-```
-
-## 已知限制
-
-- 输入被截断到 512 token，只看标题、标签、标题层级和前 400 字摘要，长文的后半部分不参与判断
-- 没有 `fswatch`/`watchdog`，监听靠轮询（默认 5s），千级笔记量可忽略
-- 价值判断置信度低，见上文
-- `system_one` 返回的 `act_probability` 恒为 1.0，暂未用到 escalate 逻辑
+移动时只改文件位置，不碰文件名、不改正文。
+Obsidian 按文件名（不含路径）解析 `[[链接]]`，所以同名文件不重复的前提下，
+笔记搬去哪个文件夹都不会断链。

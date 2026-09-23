@@ -1,7 +1,7 @@
 """配置加载。"""
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
@@ -28,24 +28,12 @@ class Config:
     category_confidence_threshold: float
     value_threshold: float
     value_tiers: list[str]
-    poll_interval: float
-    settle_seconds: float
-    # 输入给模型的字段：title=只看标题（默认），full=标题+正文预览
-    state_mode: str = "title"
-    # 跨库迁移
-    source_vault: Path | None = None
-    min_chars: int = 500
-    exclude_prefixes: list[str] = field(default_factory=list)
-    prune_empty_indexes: bool = True
+    # 输入给模型的字段：full=标题+标签+标题层级+正文预览，title=只看标题
+    state_mode: str = "full"
 
     @property
     def inbox_path(self) -> Path:
         return self.vault / self.inbox
-
-    @property
-    def classify_targets(self) -> list[Category]:
-        """可作为移动目标的分类。"""
-        return [c for c in self.categories if c.folder not in self.exclude_folders]
 
     def folder_for(self, key: str) -> str | None:
         for c in self.categories:
@@ -93,10 +81,7 @@ def load_config(path: str | Path | None = None) -> Config:
     if model:
         model = str(Path(model).expanduser())
 
-    src = raw.get("source_vault")
-    source_vault = Path(src).expanduser() if src else None
-
-    state_mode = str(raw.get("state_mode", "title"))
+    state_mode = str(raw.get("state_mode", "full"))
     if state_mode not in {"title", "full"}:
         raise ValueError(f"state_mode 只能是 title 或 full，收到: {state_mode}")
 
@@ -111,11 +96,5 @@ def load_config(path: str | Path | None = None) -> Config:
         ),
         value_threshold=float(raw.get("value_threshold", 1.0)),
         value_tiers=list(raw.get("value_tiers", [])),
-        poll_interval=float(raw.get("poll_interval", 5)),
-        settle_seconds=float(raw.get("settle_seconds", 3)),
         state_mode=state_mode,
-        source_vault=source_vault,
-        min_chars=int(raw.get("min_chars", 500)),
-        exclude_prefixes=list(raw.get("exclude_prefixes", [])),
-        prune_empty_indexes=bool(raw.get("prune_empty_indexes", True)),
     )

@@ -68,32 +68,5 @@ value_tiers:
   - "2 中：有参考意义，会回看"
   - "3 高：核心知识，长期复用"
 
-# 模型看什么。full=标题+标签+标题层级+正文预览（默认，分类更准）；title=只喂标题（快3倍，精度略降）
-# 迁移旧库时临时用过 title，日常分类用 full
+# 模型看什么。full=标题+标签+标题层级+正文预览（分类更准，日常用）；title=只喂标题（快3倍，精度略降）
 state_mode: full
-
-# watch 模式轮询间隔（秒）。无 fswatch/watchdog，用轮询
-poll_interval: 5
-
-# 文件写入后需静置的秒数，避免读到写了一半的笔记
-settle_seconds: 3
-
-# ===== 跨库迁移（migrate_once.py 一次性脚本，已执行完毕）=====
-# 旧库已重命名且不再维护，此处停用 —— 恢复此行会让 migrate_once.py 重新可用
-# source_vault: /Users/adrain/Documents/notebook-old
-
-# 最小字数：低于此值视为空壳占位，不迁
-# 实测 8 篇 <100 字（含 0 字空文件、未命名草稿）+ 24 篇 100-500 字
-min_chars: 500
-
-# 排除的目录前缀（相对 source_vault，含文件本身）
-# 微信读书 160 篇：你明确说不需要；2026画像 虽在目录外但内容同源
-exclude_prefixes:
-  - 阅读/读书笔记/微信读书
-  - 阅读/读书笔记/微信读书2026画像
-  - 资源/Excalidraw
-  - .workbuddy
-
-# 索引文件不迁（绑在旧结构上，新库有自己一套 11 个索引）
-# 但"内容已全部搬走"的索引会在迁移后从源库删除，避免留下指向空处的残骸
-prune_empty_indexes: true

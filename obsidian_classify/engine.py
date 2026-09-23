@@ -23,9 +23,6 @@ class Judgment:
     value_norm: float  # 0-1
     value_label: str
     value_confidence: float
-    value_probs: dict[str, float]
-    # 总体
-    input_tokens: int
 
     @property
     def category_ok(self) -> bool:
@@ -110,8 +107,6 @@ class Engine:
             value_norm=norm,
             value_label=label,
             value_confidence=value_conf,
-            value_probs={k: float(v) for k, v in (val.get("probabilities") or {}).items()},
-            input_tokens=int((raw.get("usage") or {}).get("input_tokens", 0)),
         )
         j._threshold = self.cfg.category_confidence_threshold
         j._value_threshold = self.cfg.value_threshold
