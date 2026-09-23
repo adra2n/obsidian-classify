@@ -1,0 +1,75 @@
+# Obsidian 笔记自动分类 + 价值评估配置
+
+# 目标笔记本（新库，不碰旧库）
+vault: /Users/adrain/Documents/notebook2
+
+# laya 模型缓存路径
+model: ~/.cache/huggingface/hub/models--convaiinnovations--laya/snapshots/main
+
+# 收件箱：只有这里的笔记会被处理
+inbox: 00 收件箱
+
+# 分类目标。key 是模型输出的类别 id，必须保持 8 个 ——
+# laya 的 choice:6-10 桶温度=1.0 已校准，choice:11+ 桶被 clamp 到 0.1006 属未校准，
+# 加到第 9 类以上会得到不可信的置信度。
+# description 要短：选项文本共用 head_max_len=192，超长会直接抛 ValueError。
+categories:
+  meeting:
+    folder: 01 会议纪要
+    label: 会议纪要
+    description: 会议记录、纪要、行动项
+  work:
+    folder: 02 工作文档
+    label: 工作文档
+    description: 工作报告、总结、方案、项目
+  tech:
+    folder: 03 技术文档
+    label: 技术文档
+    description: 技术、编程、运维、架构、排障
+  study:
+    folder: 04 学习笔记
+    label: 学习笔记
+    description: 课程、培训、技能、考证
+  reading:
+    folder: 05 读书笔记
+    label: 读书笔记
+    description: 书籍笔记、书单、文章精读
+  life:
+    folder: 06 生活记录
+    label: 生活记录
+    description: 生活、日记、健康、家庭
+  collect:
+    folder: 07 资料收集
+    label: 资料收集
+    description: 剪藏、参考资料、调研素材
+  idea:
+    folder: 08 想法灵感
+    label: 想法灵感
+    description: 想法、灵感、点子、草稿
+
+# 不参与自动分类的文件夹
+exclude_folders:
+  - 00 收件箱
+  - 09 模板
+  - 10 附件
+
+# 置信度阈值：低于此值留在收件箱等人工。
+# 实测参考：清晰的技术笔记 0.32，模糊笔记 0.13，旧库历史分布 0.04-0.49
+category_confidence_threshold: 0.25
+
+# 价值阈值：score 期望分 0-3，低于此值判定为低价值
+# 0 低 / 1 偏低 / 2 中 / 3 高
+value_threshold: 1.0
+
+# 分档文案（4 档 → 落 score:3-5 校准桶）
+value_tiers:
+  - "0 低：随手记录，过后无用"
+  - "1 偏低：一时所需，转瞬即过"
+  - "2 中：有参考意义，会回看"
+  - "3 高：核心知识，长期复用"
+
+# watch 模式轮询间隔（秒）。无 fswatch/watchdog，用轮询
+poll_interval: 5
+
+# 文件写入后需静置的秒数，避免读到写了一半的笔记
+settle_seconds: 3
