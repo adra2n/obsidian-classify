@@ -10,6 +10,9 @@ venv/
 state.json
 .cache/
 
+# 个人配置（含库路径，从 config.example.yaml 复制）
+config.yaml
+
 # 系统
 .DS_Store
 Thumbs.db

@@ -1,0 +1,4 @@
+# 运行依赖。torch / transformers 由 laya 自带；
+# Intel Mac (x86) 已知可用组合见 README「环境」一节。
+laya>=0.3.6
+pyyaml>=6.0
