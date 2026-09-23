@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-# 状态总长受 max_len=512 约束，标题+标签+摘要要留出余量
+# 状态总长受 max_len=512 约束；mode="full" 时标题+标签+摘要要留出余量
 TITLE_MAX = 100
 TAGS_MAX = 10
 SUMMARY_MAX = 400
@@ -87,8 +87,16 @@ def parse_note(path: Path, vault: Path) -> Note:
     )
 
 
-def build_state(note: Note) -> str:
-    """system_one 的 state 文本。控制在 512 token 内。"""
+def build_state(note: Note, mode: str = "title") -> str:
+    """system_one 的 state 文本。
+
+    mode="title"（默认）：只给标题，不读正文 —— 分类看标题足够，
+    且省掉 512 token 的正文预览，推理明显更快。
+    mode="full"：标题 + 标签 + 标题层级 + 正文预览（旧行为，慢）。
+    """
+    if mode != "full":
+        return f"Title: {note.title}"
+
     tags = ", ".join(note.tags) if note.tags else "none"
     heads = "; ".join(note.headings[:5]) if note.headings else "none"
     return (

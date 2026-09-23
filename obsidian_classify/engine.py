@@ -80,7 +80,7 @@ class Engine:
         return questions
 
     def judge(self, note: Note) -> Judgment:
-        state = build_state(note)
+        state = build_state(note, self.cfg.state_mode)
         raw = self.agent.system_one(state, self._questions())
         answers = raw["answers"]
 

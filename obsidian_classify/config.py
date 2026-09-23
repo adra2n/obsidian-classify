@@ -30,6 +30,13 @@ class Config:
     value_tiers: list[str]
     poll_interval: float
     settle_seconds: float
+    # 输入给模型的字段：title=只看标题（默认），full=标题+正文预览
+    state_mode: str = "title"
+    # 跨库迁移
+    source_vault: Path | None = None
+    min_chars: int = 500
+    exclude_prefixes: list[str] = field(default_factory=list)
+    prune_empty_indexes: bool = True
 
     @property
     def inbox_path(self) -> Path:
@@ -86,6 +93,13 @@ def load_config(path: str | Path | None = None) -> Config:
     if model:
         model = str(Path(model).expanduser())
 
+    src = raw.get("source_vault")
+    source_vault = Path(src).expanduser() if src else None
+
+    state_mode = str(raw.get("state_mode", "title"))
+    if state_mode not in {"title", "full"}:
+        raise ValueError(f"state_mode 只能是 title 或 full，收到: {state_mode}")
+
     return Config(
         vault=Path(raw["vault"]).expanduser(),
         model=model,
@@ -99,4 +113,9 @@ def load_config(path: str | Path | None = None) -> Config:
         value_tiers=list(raw.get("value_tiers", [])),
         poll_interval=float(raw.get("poll_interval", 5)),
         settle_seconds=float(raw.get("settle_seconds", 3)),
+        state_mode=state_mode,
+        source_vault=source_vault,
+        min_chars=int(raw.get("min_chars", 500)),
+        exclude_prefixes=list(raw.get("exclude_prefixes", [])),
+        prune_empty_indexes=bool(raw.get("prune_empty_indexes", True)),
     )
